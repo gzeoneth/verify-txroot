@@ -4,7 +4,7 @@ import { BaseTrie } from 'merkle-patricia-tree'
 import { ethers } from "ethers"
 import rlp from 'rlp'
 import dotenv from 'dotenv'
-import { toBuffer } from '@ethereumjs/util'
+import { bigIntToUnpaddedBuffer, toBuffer } from '@ethereumjs/util'
 dotenv.config()
 
 const main = async (blocknumber: number, provider: ethers.providers.JsonRpcProvider) => {
@@ -44,49 +44,49 @@ const main = async (blocknumber: number, provider: ethers.providers.JsonRpcProvi
             // https://github.com/OffchainLabs/go-ethereum/blob/master/core/types/arb_types.go
             case 100: // ArbitrumDepositTxType
                 txrlpbuffer = Buffer.concat([new Uint8Array([_tx_type]), rlp.encode([
-                    _tx.chainId,
+                    bigIntToUnpaddedBuffer(BigInt(_tx.chainId)),
                     _tx.requestId,
                     _tx.from,
                     _tx.to,
-                    _tx.value
+                    bigIntToUnpaddedBuffer(BigInt(_tx.value))
                 ])])
                 break;
             case 104: // ArbitrumRetryTxType
                 txrlpbuffer = Buffer.concat([new Uint8Array([_tx_type]), rlp.encode([
-                    _tx.chainId,
-                    _tx.nonce,
+                    bigIntToUnpaddedBuffer(BigInt(_tx.chainId)),
+                    bigIntToUnpaddedBuffer(BigInt(_tx.nonce)),
                     _tx.from,
-                    _tx.maxFeePerGas,
-                    _tx.gas,
+                    bigIntToUnpaddedBuffer(BigInt(_tx.maxFeePerGas)),
+                    bigIntToUnpaddedBuffer(BigInt(_tx.gas)),
                     _tx.to,
-                    _tx.value,
+                    bigIntToUnpaddedBuffer(BigInt(_tx.value)),
                     _tx.input,
                     _tx.ticketId,
                     _tx.refundTo,
-                    _tx.maxRefund,
-                    _tx.submissionFeeRefund
+                    bigIntToUnpaddedBuffer(BigInt(_tx.maxRefund)),
+                    bigIntToUnpaddedBuffer(BigInt(_tx.submissionFeeRefund))
                 ])])
                 break;
             case 105: // ArbitrumSubmitRetryableTxType
                 txrlpbuffer = Buffer.concat([new Uint8Array([_tx_type]), rlp.encode([
-                    _tx.chainId,
+                    bigIntToUnpaddedBuffer(BigInt(_tx.chainId)),
                     _tx.requestId,
                     _tx.from,
-                    _tx.l1BaseFee,
-                    _tx.depositValue,
-                    _tx.maxFeePerGas,
-                    _tx.gas,
+                    bigIntToUnpaddedBuffer(BigInt(_tx.l1BaseFee)),
+                    bigIntToUnpaddedBuffer(BigInt(_tx.depositValue)),
+                    bigIntToUnpaddedBuffer(BigInt(_tx.maxFeePerGas)),
+                    bigIntToUnpaddedBuffer(BigInt(_tx.gas)),
                     _tx.retryTo,
-                    _tx.retryValue,
+                    bigIntToUnpaddedBuffer(BigInt(_tx.retryValue)),
                     _tx.beneficiary,
-                    _tx.maxSubmissionFee,
+                    bigIntToUnpaddedBuffer(BigInt(_tx.maxSubmissionFee)),
                     _tx.refundTo,
                     _tx.retryData
                 ])])
                 break;
             case 106: // ArbitrumInternalTx
                 txrlpbuffer = Buffer.concat([new Uint8Array([_tx_type]), rlp.encode([
-                    _tx.chainId,
+                    bigIntToUnpaddedBuffer(BigInt(_tx.chainId)),
                     _tx.input
                 ])])
                 break;
@@ -96,7 +96,6 @@ const main = async (blocknumber: number, provider: ethers.providers.JsonRpcProvi
             default:
                 throw Error(`unimplemeted type ${_tx_type}`)
         }
-
         await trie.put(
             toBuffer(rlp.encode(i)),
             txrlpbuffer,
