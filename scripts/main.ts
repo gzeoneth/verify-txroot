@@ -1,50 +1,105 @@
-import Common from '@ethereumjs/common'
-import { Transaction } from 'ethereumjs-tx'
+import Common, { Hardfork } from '@ethereumjs/common'
+import { TransactionFactory } from '@ethereumjs/tx'
 import { BaseTrie } from 'merkle-patricia-tree'
 import { ethers } from "ethers"
-import { rlp } from 'ethereumjs-util'
+import rlp from 'rlp'
 import dotenv from 'dotenv'
+import { toBuffer } from '@ethereumjs/util'
 dotenv.config()
 
 const main = async (blocknumber: number, provider: ethers.providers.JsonRpcProvider) => {
     const chainid = (await provider.getNetwork()).chainId
     const block = await provider.send('eth_getBlockByNumber', [`0x${blocknumber.toString(16)}`, true]);
-    const common = new Common({
-        chain: "Custom", customChains: [[{
-            name: "Custom",
+    const common = Common.custom(
+        {
+            name: 'Custom',
             chainId: chainid,
             networkId: chainid,
-            comment: "",
-            url: "",
-            genesis: {
-                "hash": "",
-                "timestamp": null,
-                "gasLimit": 0,
-                "difficulty": 0,
-                "nonce": "",
-                "extraData": "",
-                "stateRoot": ""
-            },
-            hardforks: [],
-            bootstrapNodes: [],
-        }, {}
-        ]]
-    });
+        },
+        {
+            hardfork: Hardfork.London
+        }
+    )
 
     // Construct a Patricia trie, using each transaction's index as the key, and the
     // raw transaction body as the value.
     const trie = new BaseTrie()
     for (let i = 0; i < block.transactions.length; i++) {
-        const tx = block.transactions[i]
-        if (tx.v === '0x0') {
-            // there are certrain arbitrum transaction that don't have signature
-            delete tx.v
-            delete tx.r
-            delete tx.s
+        const _tx = block.transactions[i]
+        const _tx_type = parseInt(_tx.type, 16)
+        let txrlpbuffer
+        switch (_tx_type) {
+            case 0:
+            case 1:
+            case 2:
+                const tx = TransactionFactory.fromTxData({
+                    ..._tx,
+                    gasLimit: _tx.gas,
+                    data: _tx.input,
+                    type: _tx_type > 2 ? undefined : _tx_type,
+                    v: _tx.v === '0x0' ? undefined : _tx.v,
+                }, { common: common })
+                txrlpbuffer = tx.serialize()
+                break;
+            // https://github.com/OffchainLabs/go-ethereum/blob/master/core/types/arb_types.go
+            case 100: // ArbitrumDepositTxType
+                txrlpbuffer = Buffer.concat([new Uint8Array([_tx_type]), rlp.encode([
+                    _tx.chainId,
+                    _tx.requestId,
+                    _tx.from,
+                    _tx.to,
+                    _tx.value
+                ])])
+                break;
+            case 104: // ArbitrumRetryTxType
+                txrlpbuffer = Buffer.concat([new Uint8Array([_tx_type]), rlp.encode([
+                    _tx.chainId,
+                    _tx.nonce,
+                    _tx.from,
+                    _tx.maxFeePerGas,
+                    _tx.gas,
+                    _tx.to,
+                    _tx.value,
+                    _tx.input,
+                    _tx.ticketId,
+                    _tx.refundTo,
+                    _tx.maxRefund,
+                    _tx.submissionFeeRefund
+                ])])
+                break;
+            case 105: // ArbitrumSubmitRetryableTxType
+                txrlpbuffer = Buffer.concat([new Uint8Array([_tx_type]), rlp.encode([
+                    _tx.chainId,
+                    _tx.requestId,
+                    _tx.from,
+                    _tx.l1BaseFee,
+                    _tx.depositValue,
+                    _tx.maxFeePerGas,
+                    _tx.gas,
+                    _tx.retryTo,
+                    _tx.retryValue,
+                    _tx.beneficiary,
+                    _tx.maxSubmissionFee,
+                    _tx.refundTo,
+                    _tx.retryData
+                ])])
+                break;
+            case 106: // ArbitrumInternalTx
+                txrlpbuffer = Buffer.concat([new Uint8Array([_tx_type]), rlp.encode([
+                    _tx.chainId,
+                    _tx.input
+                ])])
+                break;
+            case 101: // ArbitrumUnsignedTxType
+            case 102: // ArbitrumContractTxType
+            case 120: // ArbitrumSubmitSignedTxType
+            default:
+                throw Error(`unimplemeted type ${_tx_type}`)
         }
+
         await trie.put(
-            rlp.encode(i),
-            new Transaction(tx, { common: common as any }).serialize()
+            toBuffer(rlp.encode(i)),
+            txrlpbuffer,
         )
     }
     console.log(`Block ${blocknumber} has ${block.transactions.length} transactions`)
@@ -52,12 +107,12 @@ const main = async (blocknumber: number, provider: ethers.providers.JsonRpcProvi
     console.log(`Actual   tx root: 0x${trie.root.toString('hex')}`)
 }
 
-if (!process.env.ARCHIVE_RPC){
+if (!process.env.ARCHIVE_RPC) {
     console.log("ARCHIVE_RPC envvar not set")
     process.exit(1)
 }
 const provider = new ethers.providers.JsonRpcProvider(process.env.ARCHIVE_RPC);
-if (!process.env.BLOCK_NUMBER){
+if (!process.env.BLOCK_NUMBER) {
     console.log("BLOCK_NUMBER envvar not set")
     process.exit(1)
 }
