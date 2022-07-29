@@ -90,9 +90,21 @@ const main = async (blocknumber: number, provider: ethers.providers.JsonRpcProvi
                     _tx.input
                 ])])
                 break;
+            case 120: // ArbitrumSubmitSignedTxType
+                txrlpbuffer = Buffer.from(rlp.encode([
+                    bigIntToUnpaddedBuffer(BigInt(_tx.nonce)),
+                    bigIntToUnpaddedBuffer(BigInt(_tx.gasPrice)),
+                    bigIntToUnpaddedBuffer(BigInt(_tx.gas)),
+                    _tx.to,
+                    bigIntToUnpaddedBuffer(BigInt(_tx.value)),
+                    _tx.input,
+                    bigIntToUnpaddedBuffer(BigInt(_tx.v)),     
+                    bigIntToUnpaddedBuffer(BigInt(_tx.r)),     
+                    bigIntToUnpaddedBuffer(BigInt(_tx.s)),               
+                ]))
+                break;
             case 101: // ArbitrumUnsignedTxType
             case 102: // ArbitrumContractTxType
-            case 120: // ArbitrumSubmitSignedTxType
             default:
                 throw Error(`unimplemeted type ${_tx_type}`)
         }
