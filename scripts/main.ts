@@ -26,7 +26,7 @@ const main = async (blocknumber: number, provider: ethers.providers.JsonRpcProvi
     const trie = new BaseTrie()
     for (let i = 0; i < block.transactions.length; i++) {
         const _tx = block.transactions[i]
-        const _tx_type = parseInt(_tx.type, 16)
+        const _tx_type = parseInt(_tx.type ?? "0", 16)
         let txrlpbuffer
         switch (_tx_type) {
             case 0:
