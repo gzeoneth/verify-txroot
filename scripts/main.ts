@@ -108,6 +108,12 @@ const main = async (blocknumber: number, provider: ethers.providers.JsonRpcProvi
             default:
                 throw Error(`unimplemeted type ${_tx_type}`)
         }
+
+        console.log(_tx_type)
+        console.log("Expected tx hash", _tx.hash)
+        // TODO: fix hash calculation for type 120
+        console.log("Actual   tx hash", ethers.utils.keccak256(txrlpbuffer))
+
         await trie.put(
             toBuffer(rlp.encode(i)),
             txrlpbuffer,
